@@ -26,7 +26,6 @@ export const api = {
     create: (payload) =>
       request("/datasets", { method: "POST", body: JSON.stringify(payload) }),
     remove: (id) => request(`/datasets/${id}`, { method: "DELETE" }),
-    verify: (id) => request(`/datasets/${id}/verify`),
     rows: (id) => request(`/datasets/${id}/rows`),
     schema: (id) => request(`/datasets/${id}/schema`),
     unify: (id, payload) =>

@@ -19,8 +19,8 @@ def utcnow() -> datetime:
 class Dataset(Base):
     """Сирий (необроблений) набір даних, отриманий із зовнішнього відкритого API.
 
-    Після створення `raw_data` не змінюється (вимога 2.1). Незмінність
-    перевіряється звіркою `raw_hash` — ендпоінт `GET /datasets/{id}/verify`.
+    Після створення `raw_data` не змінюється (вимога 2.1) — обробка завжди
+    працює з копією, а не з цим записом.
     """
 
     __tablename__ = "datasets"
@@ -37,7 +37,6 @@ class Dataset(Base):
     row_count: Mapped[int] = mapped_column(Integer)
     columns: Mapped[list] = mapped_column(JSON, default=list)
     raw_data: Mapped[list] = mapped_column(JSON)
-    raw_hash: Mapped[str] = mapped_column(String(64))
 
 
 class Recipe(Base):

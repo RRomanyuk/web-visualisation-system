@@ -47,15 +47,7 @@ class RowsBundle(BaseModel):
 class DatasetDetail(DatasetSummary):
     content_type: str
     records_path: str | None
-    raw_hash: str
     rows: RowsPage
-
-
-class VerifyResult(BaseModel):
-    dataset_id: str
-    stored_hash: str
-    current_hash: str
-    immutable: bool
 
 
 class UnifyRequest(BaseModel):

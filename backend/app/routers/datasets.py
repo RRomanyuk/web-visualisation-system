@@ -1,5 +1,3 @@
-import hashlib
-import json
 import secrets
 
 from fastapi import APIRouter, Depends, Query, status
@@ -23,7 +21,6 @@ from app.schemas import (
     RowsPage,
     UnifyRequest,
     UnifyResult,
-    VerifyResult,
 )
 from app.services import recipe_store
 from app.services.clean import CleaningConfig, clean
@@ -39,11 +36,6 @@ settings = get_settings()
 
 def _new_id() -> str:
     return "ds_" + secrets.token_hex(6)
-
-
-def _hash_records(records: list) -> str:
-    payload = json.dumps(records, sort_keys=True, ensure_ascii=False, default=str)
-    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
 def _summary(ds: Dataset) -> DatasetSummary:
@@ -97,7 +89,6 @@ def create_dataset(payload: DatasetCreate, db: Session = Depends(get_db)) -> Dat
         row_count=len(records),
         columns=columns,
         raw_data=records,
-        raw_hash=_hash_records(records),
     )
     db.add(ds)
     db.commit()
@@ -125,7 +116,6 @@ def get_dataset(
         **_summary(ds).model_dump(),
         content_type=ds.content_type,
         records_path=ds.records_path,
-        raw_hash=ds.raw_hash,
         rows=RowsPage(page=page, size=size, total=ds.row_count, rows=page_rows),
     )
 
@@ -135,18 +125,6 @@ def dataset_rows(dataset_id: str, db: Session = Depends(get_db)) -> RowsBundle:
     """Усі сирі рядки набору — для візуалізації."""
     ds = _get_or_404(db, dataset_id)
     return RowsBundle(columns=ds.columns, row_count=ds.row_count, rows=ds.raw_data)
-
-
-@router.get("/{dataset_id}/verify", response_model=VerifyResult)
-def verify_dataset(dataset_id: str, db: Session = Depends(get_db)) -> VerifyResult:
-    ds = _get_or_404(db, dataset_id)
-    current = _hash_records(ds.raw_data)
-    return VerifyResult(
-        dataset_id=ds.id,
-        stored_hash=ds.raw_hash,
-        current_hash=current,
-        immutable=current == ds.raw_hash,
-    )
 
 
 @router.get("/{dataset_id}/schema")

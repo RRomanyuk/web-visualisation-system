@@ -7,7 +7,6 @@ const PAGE_SIZE = 25;
 export default function DatasetPreview({ datasetId }) {
   const [page, setPage] = useState(1);
   const [data, setData] = useState(null);
-  const [verify, setVerify] = useState(null);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -42,25 +41,6 @@ export default function DatasetPreview({ datasetId }) {
         <div><dt>Отримано</dt><dd>{new Date(data.fetched_at).toLocaleString()}</dd></div>
         <div><dt>Рядків</dt><dd>{data.rows.total}</dd></div>
         <div><dt>Колонок</dt><dd>{data.columns.length}</dd></div>
-        <div>
-          <dt>Хеш (незмінність)</dt>
-          <dd>
-            <code className="hash">{data.raw_hash.slice(0, 16)}…</code>{" "}
-            <button
-              className="link-btn"
-              onClick={() =>
-                api.datasets.verify(data.id).then(setVerify).catch((e) => setError(e.message))
-              }
-            >
-              перевірити
-            </button>
-            {verify && (
-              <span className={verify.immutable ? "ok-text" : "error-text"}>
-                {verify.immutable ? " ✓ незмінні" : " ✗ змінені"}
-              </span>
-            )}
-          </dd>
-        </div>
       </dl>
 
       <DataTable columns={data.columns} rows={data.rows.rows} />

@@ -3,6 +3,7 @@
 Єдиний етап, що ПЕРЕТВОРЮЄ значення:
   • дати       -> ISO 8601;
   • числа      -> канонічний вигляд (роздільник ".", без розрядних роздільників);
+  • логічні    -> лише маркери пропуску (NULL, NA…) стають null; True/False не чіпаємо;
   • категорії  -> за явним словником відповідностей (детерміновано).
 
 Значення, які не вдалося перетворити, фіксуються як дефекти; вихідне
@@ -120,6 +121,7 @@ def normalize(
         for f, s in props.items()
         if s.get("type") in ("integer", "number")
     }
+    boolean_fields = [f for f, s in props.items() if s.get("type") == "boolean"]
     category_maps = {
         f: {_preprocess_category(k, config.unaccent): v for k, v in mapping.items()}
         for f, mapping in config.category_mappings.items()
@@ -163,6 +165,13 @@ def normalize(
                 defects.append({"row": i, "field": f, "type": "number_unrecognized", "value": v})
             elif res != v:
                 new[f] = res
+                bump(f)
+
+        for f in boolean_fields:
+            v = row.get(f)
+            # значення True/False не чіпаємо; лише маркер пропуску (NULL, NA…) → null
+            if is_missing(v, props[f]) and _na_marker(v):
+                new[f] = None
                 bump(f)
 
         for f, cmap in category_maps.items():

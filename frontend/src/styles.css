@@ -346,6 +346,33 @@ th.idx {
   padding: 4px 10px;
 }
 
+.pager {
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.pager-jump {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 6px;
+}
+
+.pager-jump input {
+  display: inline-block;
+  width: 72px;
+  margin: 0;
+  padding: 4px 6px;
+  text-align: center;
+}
+
+.chart-empty {
+  padding: 48px 16px;
+  text-align: center;
+  border: 1px dashed #d8d8dc;
+  border-radius: 8px;
+}
+
 .recipe-bar {
   display: flex;
   align-items: flex-end;
@@ -477,13 +504,13 @@ th.idx {
   margin-bottom: 0;
 }
 
-.options label.check {
+label.check {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-.options label.check input {
+label.check input {
   width: auto;
   margin: 0;
 }

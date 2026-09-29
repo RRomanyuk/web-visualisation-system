@@ -1,7 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../api.js";
 import Chart from "../components/Chart.jsx";
-import { applyFilter, axisTitle, buildTraces, toRawView } from "../lib/aggregate.js";
+import {
+  applyFilter,
+  buildChart,
+  pickDefaults,
+  planAxis,
+  profileColumns,
+  syncYRange,
+  toRawView,
+} from "../lib/aggregate.js";
 
 const CHART_TYPES = [
   { id: "bar", label: "Стовпчикова" },
@@ -15,7 +23,20 @@ const OPS = [
   { id: "gt", label: ">" },
   { id: "lt", label: "<" },
 ];
+const KIND_LABEL = { number: "число", date: "дата", text: "текст" };
 const EMPTY_FILTER = { field: "", op: "eq", value: "" };
+
+// Графік або пояснення, чому його нема (замість порожнього полотна) + що автоматично підібрано.
+function ChartBlock({ chart, height }) {
+  if (!chart) return null;
+  if (chart.empty) return <p className="muted chart-empty">{chart.empty}</p>;
+  return (
+    <>
+      <Chart traces={chart.traces} layout={chart.layout} height={height} />
+      {chart.notes.length > 0 && <p className="muted small">{chart.notes.join(" ")}</p>}
+    </>
+  );
+}
 
 export default function VizPage() {
   const [datasets, setDatasets] = useState([]);
@@ -71,45 +92,77 @@ export default function VizPage() {
   }, [version]);
 
   const activeData = version === "raw" ? rawData : procData;
-  const columns = activeData?.columns || [];
+  const columns = useMemo(() => activeData?.columns || [], [activeData]);
+  const profiles = useMemo(
+    () => (activeData ? profileColumns(activeData.rows, columns) : {}),
+    [activeData, columns]
+  );
+  const numericCols = useMemo(
+    () => columns.filter((c) => profiles[c]?.kind === "number"),
+    [columns, profiles]
+  );
 
-  // дефолтні поля при зміні набору колонок
+  // Поля за замовчуванням — за виглядом значень: X — категорія з малою кількістю значень,
+  // Y — числове поле (інакше суми/лінія не мали б чого рахувати).
   useEffect(() => {
     if (!columns.length) return;
-    if (!columns.includes(xField)) setXField(columns[0]);
-    if (!columns.includes(yField)) setYField(columns[1] || columns[0]);
-  }, [columns]); // eslint-disable-line react-hooks/exhaustive-deps
+    const d = pickDefaults(columns, profiles);
+    if (!columns.includes(xField)) setXField(d.x);
+    if (!numericCols.includes(yField)) setYField(d.y);
+    if (!numericCols.length && agg !== "count") setAgg("count");
+    if (filter.field && !columns.includes(filter.field)) setFilter(EMPTY_FILTER);
+  }, [columns, profiles]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function pickType(t) {
+    setChartType(t);
+    // Лінія по текстових категоріях не має порядку — беремо дату чи число, якщо вони є.
+    if (t === "line" && profiles[xField]?.kind === "text") {
+      const alt =
+        columns.find((c) => profiles[c].kind === "date") ||
+        columns.find((c) => profiles[c].kind === "number" && c !== yField);
+      if (alt) setXField(alt);
+    }
+  }
 
   const opt = { type: chartType, x: xField, y: yField, agg };
-  const needsY = chartType === "line" || agg !== "count";
+  const comparing = compare && version !== "raw";
 
-  const mainTraces = useMemo(() => {
-    if (!activeData || !xField) return [];
-    return buildTraces(applyFilter(activeData.rows, filter), opt);
-  }, [activeData, filter, chartType, xField, yField, agg]); // eslint-disable-line
+  const filteredRows = useMemo(
+    () => (activeData ? applyFilter(activeData.rows, filter) : []),
+    [activeData, filter]
+  );
 
   // Сира сторона порівняння: імена полів перекладаються з оброблених у сирі
   // (після маппінгу поле могло називатися інакше).
   const rawView = useMemo(
-    () => (compare && xField ? toRawView(opt, filter, procData?.column_sources) : null),
-    [compare, procData, filter, chartType, xField, yField, agg] // eslint-disable-line
+    () => (comparing && xField ? toRawView(opt, filter, procData?.column_sources) : null),
+    [comparing, procData, filter, chartType, xField, yField, agg] // eslint-disable-line
+  );
+  const rawRows = useMemo(
+    () =>
+      rawView && rawData && !rawView.missing.length
+        ? applyFilter(rawData.rows, rawView.filter)
+        : null,
+    [rawView, rawData]
   );
 
-  const rawTraces = useMemo(() => {
-    if (!rawView || !rawData || rawView.missing.length) return [];
-    return buildTraces(applyFilter(rawData.rows, rawView.filter), rawView.opt);
-  }, [rawView, rawData]);
+  // Спільний план осі X: інтервали / періоди рахуються за обома сторонами, щоб графіки збігались.
+  const plan = useMemo(() => {
+    if (!xField) return null;
+    const lists = [filteredRows.map((r) => r[xField])];
+    if (rawRows) lists.push(rawRows.map((r) => r[rawView.opt.x]));
+    return planAxis(lists, profiles[xField]?.kind || "text", chartType);
+  }, [filteredRows, rawRows, rawView, profiles, xField, chartType]);
 
-  const makeLayout = (o) => {
-    const titles = axisTitle(o);
-    return o.type === "pie"
-      ? { showlegend: true }
-      : { xaxis: { title: titles.x, automargin: true }, yaxis: { title: titles.y } };
-  };
-  const layout = makeLayout(opt);
-  const rawLayout = rawView ? makeLayout(rawView.opt) : layout;
+  const [mainChart, rawChart] = useMemo(() => {
+    if (!activeData || !xField || !plan) return [null, null];
+    const main = buildChart(filteredRows, opt, plan);
+    const raw = rawRows ? buildChart(rawRows, rawView.opt, plan) : null;
+    return raw ? syncYRange(main, raw, chartType) : [main, null];
+  }, [activeData, filteredRows, rawRows, rawView, plan, chartType, xField, yField, agg]); // eslint-disable-line
 
-  const filteredCount = activeData ? applyFilter(activeData.rows, filter).length : 0;
+  const needsY = agg !== "count";
+  const kindOf = (c) => KIND_LABEL[profiles[c]?.kind] || "";
 
   return (
     <div className="viz">
@@ -165,7 +218,7 @@ export default function VizPage() {
               <button
                 key={t.id}
                 className={chartType === t.id ? "active" : ""}
-                onClick={() => setChartType(t.id)}
+                onClick={() => pickType(t.id)}
               >
                 {t.label}
               </button>
@@ -178,31 +231,36 @@ export default function VizPage() {
                 {chartType === "line" ? "Вісь X" : "Категорія (X)"}
                 <select value={xField} onChange={(e) => setXField(e.target.value)}>
                   {columns.map((c) => (
-                    <option key={c} value={c}>{c}</option>
+                    <option key={c} value={c}>
+                      {c} · {kindOf(c)}
+                    </option>
                   ))}
                 </select>
               </label>
-              {chartType !== "line" && (
-                <label>
-                  Агрегація
-                  <select value={agg} onChange={(e) => setAgg(e.target.value)}>
-                    <option value="count">кількість записів</option>
-                    <option value="sum">сума поля</option>
-                    <option value="avg">середнє поля</option>
-                  </select>
-                </label>
-              )}
+              <label>
+                Агрегація
+                <select value={agg} onChange={(e) => setAgg(e.target.value)}>
+                  <option value="count">кількість записів</option>
+                  <option value="sum" disabled={!numericCols.length}>сума поля</option>
+                  <option value="avg" disabled={!numericCols.length}>середнє поля</option>
+                </select>
+              </label>
               {needsY && (
                 <label>
-                  {chartType === "line" ? "Вісь Y (число)" : "Числове поле"}
+                  Числове поле
                   <select value={yField} onChange={(e) => setYField(e.target.value)}>
-                    {columns.map((c) => (
+                    {numericCols.map((c) => (
                       <option key={c} value={c}>{c}</option>
                     ))}
                   </select>
                 </label>
               )}
             </div>
+            {!numericCols.length && (
+              <p className="muted small">
+                У цьому наборі немає числових полів — доступна лише кількість записів.
+              </p>
+            )}
 
             <div className="row filter-row">
               <label>
@@ -242,10 +300,10 @@ export default function VizPage() {
           </div>
 
           <p className="muted">
-            Рядків після фільтра: {filteredCount} з {activeData.row_count}
+            Рядків після фільтра: {filteredRows.length} з {activeData.row_count}
           </p>
 
-          {compare && rawData && rawView ? (
+          {comparing && rawData && rawView ? (
             <div className="compare">
               <div>
                 <h3 className="section">До обробки ({rawData.row_count})</h3>
@@ -255,16 +313,16 @@ export default function VizPage() {
                     цільова схема) — порівняти нема з чим.
                   </p>
                 ) : (
-                  <Chart traces={rawTraces} layout={rawLayout} height={340} />
+                  <ChartBlock chart={rawChart} height={340} />
                 )}
               </div>
               <div>
                 <h3 className="section">Після обробки ({activeData.row_count})</h3>
-                <Chart traces={mainTraces} layout={layout} height={340} />
+                <ChartBlock chart={mainChart} height={340} />
               </div>
             </div>
           ) : (
-            <Chart traces={mainTraces} layout={layout} />
+            <ChartBlock chart={mainChart} height={380} />
           )}
         </div>
       )}

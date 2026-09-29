@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../api.js";
 import ReportsBlock from "./ReportsBlock.jsx";
+import Pager from "./Pager.jsx";
 
 const STAGE_LABELS = {
   unification: "уніфікація",
@@ -49,8 +50,12 @@ export default function JobResult({ jobId }) {
   }, [jobId]);
 
   async function goTo(p) {
-    setResult(await api.results.get(jobId, p, PAGE_SIZE));
-    setPage(p);
+    try {
+      setResult(await api.results.get(jobId, p, PAGE_SIZE));
+      setPage(p);
+    } catch (e) {
+      setError(e.message);
+    }
   }
 
   if (!jobId) return null;
@@ -88,11 +93,7 @@ export default function JobResult({ jobId }) {
         rows={result.rows.rows}
         dataTitle={`Оброблені дані (стор. ${page}/${totalPages})`}
       />
-      <div className="pager">
-        <button disabled={page <= 1} onClick={() => goTo(page - 1)}>←</button>
-        <span>{page} / {totalPages}</span>
-        <button disabled={page >= totalPages} onClick={() => goTo(page + 1)}>→</button>
-      </div>
+      <Pager page={page} totalPages={totalPages} onChange={goTo} />
     </>
   );
 }

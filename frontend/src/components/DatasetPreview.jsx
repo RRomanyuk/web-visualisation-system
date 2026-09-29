@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../api.js";
 import DataTable from "./DataTable.jsx";
+import Pager from "./Pager.jsx";
 
 const PAGE_SIZE = 25;
 
@@ -45,11 +46,7 @@ export default function DatasetPreview({ datasetId }) {
 
       <DataTable columns={data.columns} rows={data.rows.rows} />
 
-      <div className="pager">
-        <button disabled={page <= 1} onClick={() => setPage(page - 1)}>←</button>
-        <span>{page} / {totalPages}</span>
-        <button disabled={page >= totalPages} onClick={() => setPage(page + 1)}>→</button>
-      </div>
+      <Pager page={page} totalPages={totalPages} onChange={setPage} />
     </div>
   );
 }

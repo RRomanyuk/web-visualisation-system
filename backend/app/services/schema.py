@@ -4,8 +4,15 @@
 записів (вимога 2.2). Значення тут НЕ перетворюються — лише класифікуються.
 """
 
+import math
 import re
 from typing import Any
+
+# Маркери «немає даних». У типізованих полях (число, логічне, дата) вони означають
+# пропуск; у текстових — лишаються звичайним текстом (напр. "NA" — код Намібії).
+NA_TOKENS = frozenset(
+    {"nan", "+nan", "-nan", "na", "n/a", "#n/a", "#na", "<na>", "null", "none", "nil"}
+)
 
 _INT_RE = re.compile(r"^[+-]?\d+$")
 _FLOAT_RE = re.compile(r"^[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$")
@@ -24,7 +31,7 @@ def classify_value(value: Any) -> str | None:
     if isinstance(value, int):
         return "integer"
     if isinstance(value, float):
-        return "number"
+        return None if math.isnan(value) else "number"  # NaN — це пропуск, не число
     if isinstance(value, dict):
         return "object"
     if isinstance(value, list):
@@ -46,6 +53,37 @@ def classify_value(value: Any) -> str | None:
     if _DATE_RE.match(text):
         return "date"
     return "string"
+
+
+def is_na_token(value: Any) -> bool:
+    """Рядок-маркер «немає даних» (nan, NA, N/A, null…) — без урахування регістру."""
+    return isinstance(value, str) and value.strip().lower() in NA_TOKENS
+
+
+def is_typed_field(spec: dict | None) -> bool:
+    """Поле має не-текстовий тип (число, логічне, дата) — лише для таких NA-маркер = пропуск."""
+    if not spec:
+        return False
+    return spec.get("type") in ("integer", "number", "boolean") or spec.get("format") in (
+        "date",
+        "date-time",
+    )
+
+
+def is_missing(value: Any, spec: dict | None = None) -> bool:
+    """Чи є значення пропуском — єдине визначення для всіх етапів і метрик.
+
+    Завжди: None, порожній/пробільний рядок, float NaN. Для типізованих полів
+    (`spec` — опис поля зі схеми) — ще й маркери nan / NA / N/A / null тощо.
+    """
+    if value is None:
+        return True
+    if isinstance(value, float):
+        return math.isnan(value)
+    if isinstance(value, str):
+        text = value.strip()
+        return text == "" or (text.lower() in NA_TOKENS and is_typed_field(spec))
+    return False
 
 
 _NUMERIC_CLASSES = {"integer", "number"}
@@ -109,6 +147,8 @@ def infer_schema(records: list[dict]) -> dict:
                 class_map[key] = set()
                 present_count[key] = 0
             present_count[key] += 1
+            if is_na_token(value):  # маркер «немає даних» не впливає на тип колонки
+                continue
             cls = classify_value(value)
             if cls is not None:
                 class_map[key].add(cls)

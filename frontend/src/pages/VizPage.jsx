@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../api.js";
 import Chart from "../components/Chart.jsx";
-import { applyFilter, axisTitle, buildTraces } from "../lib/aggregate.js";
+import { applyFilter, axisTitle, buildTraces, toRawView } from "../lib/aggregate.js";
 
 const CHART_TYPES = [
   { id: "bar", label: "Стовпчикова" },
@@ -88,16 +88,26 @@ export default function VizPage() {
     return buildTraces(applyFilter(activeData.rows, filter), opt);
   }, [activeData, filter, chartType, xField, yField, agg]); // eslint-disable-line
 
-  const rawTraces = useMemo(() => {
-    if (!compare || !rawData || !xField) return [];
-    return buildTraces(applyFilter(rawData.rows, filter), opt);
-  }, [compare, rawData, filter, chartType, xField, yField, agg]); // eslint-disable-line
+  // Сира сторона порівняння: імена полів перекладаються з оброблених у сирі
+  // (після маппінгу поле могло називатися інакше).
+  const rawView = useMemo(
+    () => (compare && xField ? toRawView(opt, filter, procData?.column_sources) : null),
+    [compare, procData, filter, chartType, xField, yField, agg] // eslint-disable-line
+  );
 
-  const titles = axisTitle(opt);
-  const layout =
-    chartType === "pie"
+  const rawTraces = useMemo(() => {
+    if (!rawView || !rawData || rawView.missing.length) return [];
+    return buildTraces(applyFilter(rawData.rows, rawView.filter), rawView.opt);
+  }, [rawView, rawData]);
+
+  const makeLayout = (o) => {
+    const titles = axisTitle(o);
+    return o.type === "pie"
       ? { showlegend: true }
       : { xaxis: { title: titles.x, automargin: true }, yaxis: { title: titles.y } };
+  };
+  const layout = makeLayout(opt);
+  const rawLayout = rawView ? makeLayout(rawView.opt) : layout;
 
   const filteredCount = activeData ? applyFilter(activeData.rows, filter).length : 0;
 
@@ -235,11 +245,18 @@ export default function VizPage() {
             Рядків після фільтра: {filteredCount} з {activeData.row_count}
           </p>
 
-          {compare && rawData ? (
+          {compare && rawData && rawView ? (
             <div className="compare">
               <div>
                 <h3 className="section">До обробки ({rawData.row_count})</h3>
-                <Chart traces={rawTraces} layout={layout} height={340} />
+                {rawView.missing.length ? (
+                  <p className="muted">
+                    У сирих даних немає поля: {rawView.missing.join(", ")} (його додала
+                    цільова схема) — порівняти нема з чим.
+                  </p>
+                ) : (
+                  <Chart traces={rawTraces} layout={rawLayout} height={340} />
+                )}
               </div>
               <div>
                 <h3 className="section">Після обробки ({activeData.row_count})</h3>

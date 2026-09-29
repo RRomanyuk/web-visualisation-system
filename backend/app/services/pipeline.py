@@ -69,6 +69,8 @@ def run_pipeline(
     else:
         key_fields = list(effective_schema.get("required", []))
 
+    props = effective_schema.get("properties", {})
+
     # «після»: повторне виявлення дефектів тим самим детектором на кінцевому наборі
     _, after_report = clean(normalized, effective_schema, cleaning_config)
 
@@ -80,8 +82,8 @@ def run_pipeline(
             "after_by_type": after_report["by_type"],
         },
         "completeness": {
-            "before": completeness(unified, key_fields),
-            "after": completeness(normalized, key_fields),
+            "before": completeness(unified, key_fields, props),
+            "after": completeness(normalized, key_fields, props),
         },
         "retention": retention(len(raw_data), len(normalized)),
         "key_fields": key_fields,

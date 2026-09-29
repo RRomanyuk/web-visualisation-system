@@ -19,6 +19,7 @@ from app.schemas import (
 )
 from app.services import recipe_store
 from app.services.job_runner import run_job
+from app.services.unify import source_columns
 
 router = APIRouter(tags=["process"])
 
@@ -146,4 +147,9 @@ def result_rows(job_id: str, db: Session = Depends(get_db)) -> RowsBundle:
         raise AppError("job_not_ready", f"Задача у статусі '{job.status}'", 409)
     res = db.get(Result, job_id)
     columns = res.unify_report.get("unified_columns", [])
-    return RowsBundle(columns=columns, row_count=res.row_count, rows=res.processed_data)
+    return RowsBundle(
+        columns=columns,
+        row_count=res.row_count,
+        rows=res.processed_data,
+        column_sources=source_columns(res.unify_report, columns),
+    )

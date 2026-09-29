@@ -12,7 +12,18 @@
 
 from typing import Any
 
-from app.services.schema import matches_type
+from app.services.schema import is_missing, matches_type
+
+
+def source_columns(report: dict, columns: list[str]) -> dict[str, str | None]:
+    """Для кожного поля результату — його назва в сирих даних (за звітом уніфікації).
+
+    Перейменовані поля беруться з `renamed`, поля, яких немає в джерелі
+    (`missing_fields`), дають None, решта збігається з сирими назвами.
+    """
+    renamed = {r["to"]: r["from"] for r in report.get("renamed", [])}
+    missing = set(report.get("missing_fields", []))
+    return {c: (None if c in missing else renamed.get(c, c)) for c in columns}
 
 
 def unify(
@@ -79,7 +90,7 @@ def unify(
         examples: list[Any] = []
         for row in unified:
             value = row.get(field)
-            if value is None or value == "":
+            if is_missing(value, spec):  # пропуск — не помилка типу
                 continue
             if not matches_type(value, spec):
                 bad += 1

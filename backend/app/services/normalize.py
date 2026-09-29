@@ -10,11 +10,14 @@
 результат повністю відтворюваний (вимога 2.3).
 """
 
+import math
 import re
 import unicodedata
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
+
+from app.services.schema import is_missing
 
 _DEFECT_CAP = 500
 
@@ -89,9 +92,16 @@ def _normalize_number(
             num = float(text)
         except ValueError:
             return None
+    if not math.isfinite(num):  # float() приймає "nan"/"inf" — це не числа
+        return None
     if want_int and num.is_integer():
         return int(num)
     return num
+
+
+def _na_marker(value: Any) -> bool:
+    """Пропуск, записаний маркером (nan, NA…) чи float NaN, а не порожнім значенням."""
+    return value is not None and not (isinstance(value, str) and value.strip() == "")
 
 
 def normalize(
@@ -127,7 +137,10 @@ def normalize(
 
         for f, want_dt in date_fields.items():
             v = row.get(f)
-            if v is None or v == "":
+            if is_missing(v, props[f]):
+                if _na_marker(v):  # nan / NA → єдиний канонічний маркер пропуску (null)
+                    new[f] = None
+                    bump(f)
                 continue
             res = _normalize_date(v, config.date_input_formats, want_dt)
             if res is None:
@@ -138,7 +151,10 @@ def normalize(
 
         for f, want_int in number_fields.items():
             v = row.get(f)
-            if v is None or v == "":
+            if is_missing(v, props[f]):
+                if _na_marker(v):  # nan / NAN / NA → null, а не float NaN у виході
+                    new[f] = None
+                    bump(f)
                 continue
             res = _normalize_number(
                 v, config.decimal_separator, config.thousands_separator, want_int

@@ -91,6 +91,23 @@ export function buildTraces(rows, opt, name) {
   ];
 }
 
+// Порівняння до/після: поля обрано за іменами ОБРОБЛЕНИХ даних, а в сирих вони могли
+// називатися інакше (маппінг полів). `sources` = {ім'я в результаті: ім'я в сирих | null}.
+// Повертає налаштування графіка й фільтр для сирої сторони + `missing` — використані
+// поля, яких у сирих даних немає (їх додала схема), тож порівнювати нема з чим.
+export function toRawView(opt, filter, sources) {
+  const has = (f) => sources != null && f in sources;
+  const name = (f) => (has(f) ? sources[f] : f);
+  const used = [opt.x];
+  if (opt.type === "line" || opt.agg !== "count") used.push(opt.y);
+  if (filter?.field) used.push(filter.field);
+  return {
+    missing: [...new Set(used.filter((f) => has(f) && sources[f] == null))],
+    opt: { ...opt, x: name(opt.x), y: name(opt.y) },
+    filter: filter?.field ? { ...filter, field: name(filter.field) } : filter,
+  };
+}
+
 export function axisTitle(opt) {
   if (opt.type === "line") return { x: opt.x, y: opt.y };
   if (opt.agg === "count") return { x: opt.x, y: "кількість записів" };

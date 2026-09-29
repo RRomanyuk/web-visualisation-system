@@ -10,12 +10,13 @@
 """
 
 import json
+import math
 from dataclasses import dataclass
 from typing import Any
 
 import pandas as pd
 
-from app.services.schema import matches_type
+from app.services.schema import is_missing, matches_type
 
 _NUMERIC_TYPES = {"integer", "number"}
 _DEFECT_CAP = 500
@@ -30,19 +31,18 @@ class CleaningConfig:
     anomaly_k: float = 1.5
 
 
-def _is_missing(value: Any) -> bool:
-    return value is None or (isinstance(value, str) and value.strip() == "")
-
-
 def _to_number(value: Any) -> float | None:
+    """Скінченне число або None. `float()` приймає "nan"/"inf" — такі значення відсікаємо."""
     if isinstance(value, bool):
         return None
     if isinstance(value, (int, float)):
-        return float(value)
-    try:
-        return float(str(value).strip())
-    except (ValueError, TypeError):
-        return None
+        num = float(value)
+    else:
+        try:
+            num = float(str(value).strip())
+        except (ValueError, TypeError):
+            return None
+    return num if math.isfinite(num) else None
 
 
 def clean(
@@ -61,7 +61,7 @@ def clean(
     incomplete_rows: set[int] = set()
     for i, row in enumerate(records):
         for field in all_fields:
-            if _is_missing(row.get(field)):
+            if is_missing(row.get(field), props.get(field)):
                 defects.append({"row": i, "field": field, "type": "missing"})
                 if field in required:
                     incomplete_rows.add(i)
@@ -82,7 +82,7 @@ def clean(
     for i, row in enumerate(records):
         for field, spec in props.items():
             value = row.get(field)
-            if _is_missing(value):
+            if is_missing(value, spec):
                 continue
             if not matches_type(value, spec):
                 defects.append(

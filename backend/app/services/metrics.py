@@ -10,20 +10,26 @@
 порівняння коректним.
 """
 
-from typing import Any
+from app.services.schema import is_missing
 
 
-def _is_missing(value: Any) -> bool:
-    return value is None or (isinstance(value, str) and value.strip() == "")
+def completeness(
+    records: list[dict], key_fields: list[str], props: dict[str, dict] | None = None
+) -> float:
+    """Частка непорожніх клітинок у ключових полях (0..1).
 
-
-def completeness(records: list[dict], key_fields: list[str]) -> float:
-    """Частка непорожніх клітинок у ключових полях (0..1)."""
+    `props` — описи полів зі схеми: за ними маркери nan / NA у типізованих
+    полях рахуються пропусками (те саме визначення, що й в очищенні).
+    """
     if not records or not key_fields:
         return 1.0
+    props = props or {}
     total = len(records) * len(key_fields)
     filled = sum(
-        1 for row in records for field in key_fields if not _is_missing(row.get(field))
+        1
+        for row in records
+        for field in key_fields
+        if not is_missing(row.get(field), props.get(field))
     )
     return round(filled / total, 4)
 

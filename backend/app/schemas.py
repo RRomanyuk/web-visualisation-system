@@ -42,6 +42,13 @@ class RowsBundle(BaseModel):
     columns: list[str]
     row_count: int
     rows: list[dict[str, Any]]
+    column_sources: dict[str, str | None] | None = Field(
+        default=None,
+        description=(
+            "Лише для оброблених даних: {назва поля в результаті: назва в сирих даних}. "
+            "null — поля немає в джерелі. Потрібно, щоб порівняти до/після після перейменування."
+        ),
+    )
 
 
 class DatasetDetail(DatasetSummary):

@@ -3,9 +3,8 @@
 const splitList = (s) =>
   s.split(",").map((x) => x.trim()).filter(Boolean);
 
-export function toDefinition({ mappingText, schemaText, keyFieldsText, clean, norm }) {
+export function toDefinition({ mappingText, schemaText, keyFields, clean, norm }) {
   const dedupBy = splitList(clean.dedup_by);
-  const keyFields = splitList(keyFieldsText || "");
   return {
     target_schema: schemaText.trim() ? JSON.parse(schemaText) : null,
     field_mapping: mappingText.trim() ? JSON.parse(mappingText) : {},
@@ -37,7 +36,7 @@ export function fromDefinition(def) {
       ? JSON.stringify(def.field_mapping, null, 2)
       : "",
     schemaText: def.target_schema ? JSON.stringify(def.target_schema, null, 2) : "",
-    keyFieldsText: (def.key_fields || []).join(", "),
+    keyFields: def.key_fields || [],
     clean: {
       missing_values: c.missing_values ?? "mark",
       dedup: c.dedup ?? true,

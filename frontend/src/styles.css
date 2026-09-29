@@ -404,6 +404,65 @@ th.idx {
   border-color: #2b6cb0;
 }
 
+/* Візуальний редактор структури (таблиця полів) */
+.structure-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.structure-bar .link-btn {
+  margin-left: auto;
+}
+
+.schema-scroll {
+  max-height: 360px;
+  overflow: auto;
+}
+
+.schema-table th {
+  z-index: 1;
+}
+
+.schema-table td {
+  padding: 4px 8px;
+}
+
+.schema-table td input[type="text"],
+.schema-table td select {
+  margin: 0;
+  padding: 3px 6px;
+  min-width: 110px;
+}
+
+.schema-table td input[type="checkbox"] {
+  width: auto;
+  margin: 0;
+}
+
+.schema-table td.center,
+.schema-table th:first-child {
+  text-align: center;
+}
+
+.schema-table td.src {
+  color: #666;
+}
+
+.schema-table tr.off td:not(:first-child) {
+  opacity: 0.45;
+}
+
+.small {
+  font-size: 0.8rem;
+}
+
+.warn-text {
+  color: #9a5b00;
+  font-size: 0.85rem;
+}
+
 .options {
   display: flex;
   flex-direction: column;

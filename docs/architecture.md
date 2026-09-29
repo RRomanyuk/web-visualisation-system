@@ -144,6 +144,7 @@ models ── database ── config          errors, config — листя (н�
 |---|---|
 | `useHash.js` | Хук `useHash()` (поточний маршрут) + `navigate(path)`. Мінімальний роутер без бібліотеки. |
 | `recipe.js` | `toDefinition(form)` / `fromDefinition(def)` — перетворення між станом форми `ProcessPanel` і структурою `RecipeDefinition`. |
+| `structure.js` | Чиста логіка таблиці полів: `readStructure`, `buildRows`, `setName` / `setType` / `setRequired` / `setKey` / `setEnabled`. Редагує лише те, що знає (ім'я, тип, required, ключове), решта JSON (enum, minimum, чужі записи маппінгу) проходить без змін. При перейменуванні переносить назву в схему, `required` і ключові поля, щоб не лишалось «осиротілих» полів. |
 | `aggregate.js` | `toNum`, `applyFilter(rows, f)`, `buildTraces(rows, opt)` (групування/агрегація/сортування під Plotly), `axisTitle(opt)`. |
 | `defects.js` | `DEFECT_LABELS`, `label(type)` — людські назви типів дефектів. |
 
@@ -163,7 +164,8 @@ models ── database ── config          errors, config — листя (н�
 | `DatasetPreview` | Метадані + таблиця сирих даних із пагінацією. | `api.datasets.get` |
 | `DataTable` | Універсальний рендер таблиці (колонки + рядки). | — |
 | `ProcessPanel` | **Центральний компонент обробки.** Панель рецептів + 3 секції налаштувань + кнопки «Перегляд»/«Запустити й зберегти» + історія задач + вивід результату. | `api.datasets.preview`, `api.process`, `api.jobs.list`, `api.recipes.*`, `lib/recipe`, `StructureInputs`, `ReportsBlock`, `JobResult` |
-| `StructureInputs` | Спільний блок «маппінг + цільова схема» + кнопка «підставити виведену схему». | `api.datasets.schema` |
+| `StructureInputs` | Блок «структура» рецепту: перемикач **Таблиця / JSON** над одними й тими самими даними (маппінг, цільова схема, ключові поля) + «скинути до виведеної з даних». У вкладці JSON — сирі текстові поля й кнопка «підставити виведену схему». | `api.datasets.schema`, `SchemaTable` |
+| `SchemaTable` | **Візуальний редактор схеми:** рядок на колонку набору — «увімкнено», назва в схемі (→ `field_mapping`), тип (→ `properties`), «обов'язкове» (→ `required`), «ключове» (→ `key_fields`). Заповнюється виведеною схемою; до першої правки схема не матеріалізується (її виводить бекенд). Некоректний JSON блокує таблицю з поясненням. Бекенд не змінено. | `api.datasets.schema`, `lib/structure` |
 | `ReportsBlock` | Спільний вивід результату (прев'ю і задача): метрики + 3 звіти + таблиця. | `MetricsView`, `UnifyReport`, `CleanReport`, `NormalizeReport`, `DataTable` |
 | `MetricsView` | Таблиця метрик «до / після» з підсвіткою. | `lib/defects` |
 | `UnifyReport` | Звіт етапу уніфікації. | — |
@@ -179,7 +181,7 @@ models ── database ── config          errors, config — листя (н�
 App ─┬─ DataPage ─┬─ SourceForm ────────────── api
      │            ├─ DatasetList
      │            ├─ DatasetPreview ─────────── api
-     │            └─ ProcessPanel ─┬─ StructureInputs ── api
+     │            └─ ProcessPanel ─┬─ StructureInputs ─ SchemaTable ── lib/structure, api
      │                             ├─ ReportsBlock ─┬─ MetricsView ── lib/defects
      │                             │                ├─ UnifyReport
      │                             │                ├─ CleanReport ─── DefectTable ── lib/defects

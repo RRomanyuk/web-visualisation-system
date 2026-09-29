@@ -24,7 +24,7 @@ const NORM_DEFAULTS = {
 export default function ProcessPanel({ datasetId }) {
   const [mappingText, setMappingText] = useState("");
   const [schemaText, setSchemaText] = useState("");
-  const [keyFieldsText, setKeyFieldsText] = useState("");
+  const [keyFields, setKeyFields] = useState([]);
   const [clean, setClean] = useState(CLEAN_DEFAULTS);
   const [norm, setNorm] = useState(NORM_DEFAULTS);
 
@@ -56,7 +56,7 @@ export default function ProcessPanel({ datasetId }) {
   useEffect(() => {
     setMappingText("");
     setSchemaText("");
-    setKeyFieldsText("");
+    setKeyFields([]);
     setClean(CLEAN_DEFAULTS);
     setNorm(NORM_DEFAULTS);
     setRecipeId("");
@@ -70,13 +70,13 @@ export default function ProcessPanel({ datasetId }) {
   function applyForm(form) {
     setMappingText(form.mappingText);
     setSchemaText(form.schemaText);
-    setKeyFieldsText(form.keyFieldsText);
+    setKeyFields(form.keyFields);
     setClean(form.clean);
     setNorm(form.norm);
   }
 
   function currentDefinition() {
-    return toDefinition({ mappingText, schemaText, keyFieldsText, clean, norm });
+    return toDefinition({ mappingText, schemaText, keyFields, clean, norm });
   }
 
   async function selectRecipe(id) {
@@ -189,16 +189,9 @@ export default function ProcessPanel({ datasetId }) {
         setMappingText={setMappingText}
         schemaText={schemaText}
         setSchemaText={setSchemaText}
+        keyFields={keyFields}
+        setKeyFields={setKeyFields}
       />
-      <label style={{ marginTop: 10 }}>
-        Ключові поля для метрики повноти (через кому; порожньо — «required» зі схеми)
-        <input
-          type="text"
-          value={keyFieldsText}
-          placeholder="city, amount"
-          onChange={(e) => setKeyFieldsText(e.target.value)}
-        />
-      </label>
 
       <h3 className="section">2. Очищення</h3>
       <div className="options">

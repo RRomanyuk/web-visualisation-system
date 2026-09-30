@@ -8,11 +8,15 @@ import math
 import re
 from typing import Any
 
-# Маркери «немає даних». У типізованих полях (число, логічне, дата) вони означають
-# пропуск; у текстових — лишаються звичайним текстом (напр. "NA" — код Намібії).
-NA_TOKENS = frozenset(
-    {"nan", "+nan", "-nan", "na", "n/a", "#n/a", "#na", "<na>", "null", "none", "nil"}
-)
+# Маркери «немає даних» у двох рівнях певності.
+# ANY — артефакти експорту без змістовного текстового прочитання (NaN у різних написаннях,
+#       Excel/pandas «#N/A», «<NA>»): пропуск у БУДЬ-ЯКОМУ полі, в тому числі текстовому.
+# TYPED — звичайні слова, які можуть бути й справжнім значенням тексту («NA» — Намібія чи
+#       Північна Америка, «None» — категорія): пропуск лише в типізованих полях
+#       (число, логічне, дата); у текстових лишаються звичайним текстом.
+NA_TOKENS_ANY = frozenset({"nan", "+nan", "-nan", "n/a", "#n/a", "#na", "<na>"})
+NA_TOKENS_TYPED = frozenset({"na", "null", "none", "nil"})
+NA_TOKENS = NA_TOKENS_ANY | NA_TOKENS_TYPED
 
 _INT_RE = re.compile(r"^[+-]?\d+$")
 _FLOAT_RE = re.compile(r"^[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$")
@@ -73,8 +77,8 @@ def is_typed_field(spec: dict | None) -> bool:
 def is_missing(value: Any, spec: dict | None = None) -> bool:
     """Чи є значення пропуском — єдине визначення для всіх етапів і метрик.
 
-    Завжди: None, порожній/пробільний рядок, float NaN. Для типізованих полів
-    (`spec` — опис поля зі схеми) — ще й маркери nan / NA / N/A / null тощо.
+    Завжди: None, порожній/пробільний рядок, float NaN та маркери NA_TOKENS_ANY (nan, N/A…).
+    Для типізованих полів (`spec` — опис поля зі схеми) — ще й слова NA_TOKENS_TYPED (NA, null…).
     """
     if value is None:
         return True
@@ -82,7 +86,10 @@ def is_missing(value: Any, spec: dict | None = None) -> bool:
         return math.isnan(value)
     if isinstance(value, str):
         text = value.strip()
-        return text == "" or (text.lower() in NA_TOKENS and is_typed_field(spec))
+        if text == "":
+            return True
+        low = text.lower()
+        return low in NA_TOKENS_ANY or (low in NA_TOKENS_TYPED and is_typed_field(spec))
     return False
 
 

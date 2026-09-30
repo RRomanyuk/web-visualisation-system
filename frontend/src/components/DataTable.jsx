@@ -1,4 +1,5 @@
-export default function DataTable({ columns, rows }) {
+// `offset` — скільки рядків було на попередніх сторінках (для наскрізної нумерації).
+export default function DataTable({ columns, rows, offset = 0 }) {
   const cell = (v) => {
     if (v === null || v === undefined) return <span className="muted">null</span>;
     if (v === "") return <span className="muted">∅</span>;
@@ -20,7 +21,7 @@ export default function DataTable({ columns, rows }) {
         <tbody>
           {rows.map((r, i) => (
             <tr key={i}>
-              <td className="idx">{i + 1}</td>
+              <td className="idx">{offset + i + 1}</td>
               {columns.map((c) => (
                 <td key={c}>{cell(r[c])}</td>
               ))}

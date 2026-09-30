@@ -1,18 +1,17 @@
-import DataTable from "./DataTable.jsx";
 import MetricsView from "./MetricsView.jsx";
 import UnifyReport from "./UnifyReport.jsx";
 import CleanReport from "./CleanReport.jsx";
 import NormalizeReport from "./NormalizeReport.jsx";
 
 // Спільний вивід результату обробки — для прев'ю та для збереженого результату задачі.
+// `dataView` — готова таблиця оброблених даних (з пагінацією; її будує викликач).
 export default function ReportsBlock({
   metrics,
   unifyReport,
   cleanReport,
   normalizeReport,
-  columns,
-  rows,
   dataTitle,
+  dataView,
 }) {
   return (
     <div className="unify-result">
@@ -29,7 +28,7 @@ export default function ReportsBlock({
       <NormalizeReport report={normalizeReport} />
 
       <h3 className="section">{dataTitle}</h3>
-      <DataTable columns={columns} rows={rows} />
+      {dataView}
     </div>
   );
 }

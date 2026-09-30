@@ -35,7 +35,7 @@ export default function DatasetPreview({ datasetId }) {
 
   return (
     <div className="card">
-      <h2>Сирі дані · {data.id}</h2>
+      <h2>Необроблені дані · {data.id}</h2>
       <dl className="meta">
         <div><dt>Джерело</dt><dd>{data.source_url}</dd></div>
         <div><dt>Формат</dt><dd>{data.format} ({data.content_type || "—"})</dd></div>
@@ -44,7 +44,7 @@ export default function DatasetPreview({ datasetId }) {
         <div><dt>Колонок</dt><dd>{data.columns.length}</dd></div>
       </dl>
 
-      <DataTable columns={data.columns} rows={data.rows.rows} />
+      <DataTable columns={data.columns} rows={data.rows.rows} offset={(page - 1) * PAGE_SIZE} />
 
       <Pager page={page} totalPages={totalPages} onChange={setPage} />
     </div>

@@ -187,7 +187,7 @@ export default function VizPage() {
               onChange={(e) => setVersion(e.target.value)}
               disabled={!datasetId}
             >
-              <option value="raw">Сирі дані</option>
+              <option value="raw">Необроблені дані</option>
               {jobs.map((j) => (
                 <option key={j.job_id} value={j.job_id}>
                   Обробка {j.job_id.replace("job_", "")} ({new Date(j.created_at).toLocaleDateString()})

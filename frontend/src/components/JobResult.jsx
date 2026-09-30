@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../api.js";
 import ReportsBlock from "./ReportsBlock.jsx";
+import DataTable from "./DataTable.jsx";
 import Pager from "./Pager.jsx";
 
 const STAGE_LABELS = {
@@ -82,18 +83,25 @@ export default function JobResult({ jobId }) {
       <p className="muted">
         Задача <code>{jobId}</code> · готово · рядків: {result.row_count}
         {result.recipe_used &&
-          ` · рецепт ${result.recipe_used.name} v${result.recipe_used.version}`}
+          ` · конфігурація ${result.recipe_used.name} v${result.recipe_used.version}`}
       </p>
       <ReportsBlock
         metrics={result.metrics}
         unifyReport={result.unify_report}
         cleanReport={result.clean_report}
         normalizeReport={result.normalize_report}
-        columns={result.unify_report.unified_columns}
-        rows={result.rows.rows}
         dataTitle={`Оброблені дані (стор. ${page}/${totalPages})`}
+        dataView={
+          <>
+            <DataTable
+              columns={result.unify_report.unified_columns}
+              rows={result.rows.rows}
+              offset={(page - 1) * PAGE_SIZE}
+            />
+            <Pager page={page} totalPages={totalPages} onChange={goTo} />
+          </>
+        }
       />
-      <Pager page={page} totalPages={totalPages} onChange={goTo} />
     </>
   );
 }

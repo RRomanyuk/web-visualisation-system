@@ -96,7 +96,7 @@ export default function StructureInputs({
       ) : (
         <>
           <label>
-            Маппінг полів (JSON, необов'язково)
+            Відповідність полів (JSON, необов'язково)
             <textarea
               rows={3}
               value={mappingText}

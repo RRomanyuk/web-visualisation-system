@@ -4,6 +4,7 @@ import { fromDefinition, toDefinition } from "../lib/recipe.js";
 import StructureInputs from "./StructureInputs.jsx";
 import ReportsBlock from "./ReportsBlock.jsx";
 import JobResult from "./JobResult.jsx";
+import PagedTable from "./PagedTable.jsx";
 
 const CLEAN_DEFAULTS = {
   missing_values: "mark",
@@ -92,7 +93,7 @@ export default function ProcessPanel({ datasetId }) {
   }
 
   async function saveAsNew() {
-    const name = window.prompt("Назва нового рецепту:");
+    const name = window.prompt("Назва нової конфігурації:");
     if (!name) return;
     try {
       const rec = await api.recipes.create(name.trim(), currentDefinition());
@@ -113,6 +114,25 @@ export default function ProcessPanel({ datasetId }) {
       window.alert(`Збережено версію ${updated.version}`);
     } catch (e) {
       setError(e instanceof SyntaxError ? `Некоректний JSON: ${e.message}` : e.message);
+    }
+  }
+
+  async function removeRecipe() {
+    if (!selected) return;
+    try {
+      const versions = await api.recipes.versions(selected.recipe_id);
+      const ok = window.confirm(
+        `Видалити конфігурацію «${selected.name}» разом з усіма версіями (${versions.length})?
+` +
+          "Уже виконані обробки не зміняться, а поточні налаштування у формі лишаться."
+      );
+      if (!ok) return;
+      await api.recipes.remove(selected.recipe_id);
+      setRecipeId("");
+      setError("");
+      await refreshRecipes();
+    } catch (e) {
+      setError(e.message);
     }
   }
 
@@ -162,9 +182,9 @@ export default function ProcessPanel({ datasetId }) {
 
       <div className="recipe-bar">
         <label>
-          Рецепт
+          Конфігурація обробки
           <select value={recipeId} onChange={(e) => selectRecipe(e.target.value)}>
-            <option value="">— без рецепту —</option>
+            <option value="">— без конфігурації —</option>
             {recipes.map((r) => (
               <option key={r.recipe_id} value={r.recipe_id}>
                 {r.name} · v{r.version}
@@ -173,11 +193,16 @@ export default function ProcessPanel({ datasetId }) {
           </select>
         </label>
         <button type="button" className="link-btn" onClick={saveAsNew}>
-          зберегти як новий
+          Зберегти як новий
         </button>
         {selected && (
           <button type="button" className="link-btn" onClick={saveVersion}>
-            зберегти нову версію «{selected.name}»
+            Зберегти нову версію «{selected.name}»
+          </button>
+        )}
+        {selected && (
+          <button type="button" className="link-btn danger" onClick={removeRecipe}>
+            Видалити
           </button>
         )}
       </div>
@@ -320,16 +345,21 @@ export default function ProcessPanel({ datasetId }) {
             {preview.schema_source === "inferred" ? "виведена з даних" : "задана вручну"} · рядків:{" "}
             {preview.rows_in} → {preview.rows_out}
             {preview.recipe_used &&
-              ` · рецепт ${preview.recipe_used.name} v${preview.recipe_used.version}`}
+              ` · конфігурація ${preview.recipe_used.name} v${preview.recipe_used.version}`}
           </p>
           <ReportsBlock
             metrics={preview.metrics}
             unifyReport={preview.unify_report}
             cleanReport={preview.clean_report}
             normalizeReport={preview.normalize_report}
-            columns={preview.unify_report.unified_columns}
-            rows={preview.sample}
-            dataTitle={`Оброблені дані (перші ${preview.sample.length})`}
+            dataTitle={
+              preview.sample.length < preview.rows_out
+                ? `Оброблені дані (перші ${preview.sample.length} із ${preview.rows_out})`
+                : `Оброблені дані (${preview.rows_out})`
+            }
+            dataView={
+              <PagedTable columns={preview.unify_report.unified_columns} rows={preview.sample} />
+            }
           />
         </>
       )}

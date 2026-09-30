@@ -197,7 +197,7 @@ def clean_dataset(
 def preview_dataset(
     dataset_id: str,
     payload: ProcessRequest,
-    sample_size: int = Query(25, ge=1, le=200),
+    sample_size: int = Query(1000, ge=1, le=5000),
     db: Session = Depends(get_db),
 ) -> ProcessResult:
     """Синхронний прогін конвеєра БЕЗ збереження — для налаштування рецепту.

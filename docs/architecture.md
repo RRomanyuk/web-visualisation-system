@@ -85,7 +85,7 @@ RecipeDefinition = { target_schema?, field_mapping, key_fields?, cleaning, norma
 | Роутер | Ендпоінти | Що викликає |
 |---|---|---|
 | `health.py` | `GET /api/health` | — |
-| `datasets.py` | `POST /api/datasets` (отримати+зберегти), `GET /api/datasets`, `GET /api/datasets/{id}` (пагінація), `GET /api/datasets/{id}/rows` (усі рядки), `GET /api/datasets/{id}/schema` (виведена схема), `POST /api/datasets/{id}/unify`, `POST /api/datasets/{id}/clean`, `POST /api/datasets/{id}/preview` (синхронний повний конвеєр без збереження), `DELETE /api/datasets/{id}` | `fetch`, `parse`, `schema`, `unify`, `clean`, `pipeline`, `recipe_store` |
+| `datasets.py` | `POST /api/datasets` (отримати+зберегти), `GET /api/datasets`, `GET /api/datasets/{id}` (пагінація), `GET /api/datasets/{id}/rows` (усі рядки), `GET /api/datasets/{id}/schema` (виведена схема), `POST /api/datasets/{id}/unify`, `POST /api/datasets/{id}/clean`, `POST /api/datasets/{id}/preview` (синхронний повний конвеєр без збереження; `sample_size` до 5000, за замовч. 1000), `DELETE /api/datasets/{id}` | `fetch`, `parse`, `schema`, `unify`, `clean`, `pipeline`, `recipe_store` |
 | `recipes.py` | `POST /api/recipes`, `GET /api/recipes` (останні версії), `GET /api/recipes/{id}?version=`, `GET /api/recipes/{id}/versions`, `PUT /api/recipes/{id}` (нова версія), `DELETE /api/recipes/{id}` (усі версії) | `recipe_store` |
 | `jobs.py` | `POST /api/process` → `{job_id}` (створює `Job`, ставить фонову задачу), `GET /api/jobs?dataset_id=`, `GET /api/jobs/{id}` (статус), `GET /api/result/{job_id}` (пагінація), `GET /api/result/{job_id}/rows` (усі рядки) | `recipe_store`, `job_runner` |
 
@@ -162,17 +162,18 @@ models ── database ── config          errors, config — листя (н�
 | `SourceForm` | Форма «додати джерело». | `api.datasets.create` |
 | `DatasetList` | Список наборів, вибір, видалення. | — (дані з `DataPage`) |
 | `DatasetPreview` | Метадані + таблиця сирих даних із пагінацією. | `api.datasets.get` |
-| `DataTable` | Універсальний рендер таблиці (колонки + рядки). | — |
+| `DataTable` | Універсальний рендер таблиці (колонки + рядки); `offset` дає наскрізну нумерацію рядків між сторінками. | — |
+| `PagedTable` | Таблиця з **клієнтською пагінацією по 25 рядків** над масивом у пам'яті (прев'ю обробки). Експортує `PAGE_SIZE`. | `DataTable`, `Pager` |
 | `Pager` | Пагінація: перша / попередня / наступна / остання + **прямий ввід номера сторінки** (Enter або втрата фокуса; значення обмежується діапазоном). | — (використовують `DatasetPreview`, `JobResult`) |
-| `ProcessPanel` | **Центральний компонент обробки.** Панель рецептів + 3 секції налаштувань + кнопки «Перегляд»/«Запустити й зберегти» + історія задач + вивід результату. | `api.datasets.preview`, `api.process`, `api.jobs.list`, `api.recipes.*`, `lib/recipe`, `StructureInputs`, `ReportsBlock`, `JobResult` |
+| `ProcessPanel` | **Центральний компонент обробки.** Панель рецептів (вибір, збереження нової версії, **видалення з підтвердженням** — разом з усіма версіями; виконані обробки не зачіпаються, бо зберігають власну копію правил) + 3 секції налаштувань + кнопки «Перегляд»/«Запустити й зберегти» + історія задач + вивід результату. | `api.datasets.preview`, `api.process`, `api.jobs.list`, `api.recipes.*`, `lib/recipe`, `StructureInputs`, `ReportsBlock`, `JobResult` |
 | `StructureInputs` | Блок «структура» рецепту: перемикач **Таблиця / JSON** над одними й тими самими даними (маппінг, цільова схема, ключові поля) + «скинути до виведеної з даних». У вкладці JSON — сирі текстові поля й кнопка «підставити виведену схему». | `api.datasets.schema`, `SchemaTable` |
 | `SchemaTable` | **Візуальний редактор схеми:** рядок на колонку набору — «увімкнено», назва в схемі (→ `field_mapping`), тип (→ `properties`), «обов'язкове» (→ `required`), «ключове» (→ `key_fields`). Заповнюється виведеною схемою; до першої правки схема не матеріалізується (її виводить бекенд). Некоректний JSON блокує таблицю з поясненням. Бекенд не змінено. | `api.datasets.schema`, `lib/structure` |
-| `ReportsBlock` | Спільний вивід результату (прев'ю і задача): метрики + 3 звіти + таблиця. | `MetricsView`, `UnifyReport`, `CleanReport`, `NormalizeReport`, `DataTable` |
+| `ReportsBlock` | Спільний вивід результату (прев'ю і задача): метрики + 3 звіти + таблиця оброблених даних. Саму таблицю з пагінацією будує викликач і передає як `dataView` (прев'ю — `PagedTable`, задача — серверна пагінація). | `MetricsView`, `UnifyReport`, `CleanReport`, `NormalizeReport` |
 | `MetricsView` | Таблиця метрик «до / після» з підсвіткою. | `lib/defects` |
 | `UnifyReport` | Звіт етапу уніфікації. | — |
 | `CleanReport` | Звіт очищення + межі аномалій + реєстр дефектів. | `DefectTable`, `lib/defects` |
 | `NormalizeReport` | Звіт нормалізації (перетворено / не вдалося). | `DefectTable`, `lib/defects` |
-| `DefectTable` | Таблиця реєстру дефектів (рядок / поле / тип / деталі). | `lib/defects` |
+| `DefectTable` | Таблиця реєстру дефектів (рядок / поле / тип / деталі), до 500 записів — по 25 на сторінці з `Pager`. | `lib/defects`, `Pager` |
 | `JobResult` | Опитує `GET /jobs/{id}` кожні 0.6 с, показує стадію, після `done` вантажить `GET /result/{id}` з пагінацією. | `api.jobs.get`, `api.results.get`, `ReportsBlock` |
 | `Chart` | Обгортка Plotly.js: `Plotly.react(...)` в `useEffect`, `Plotly.purge` при демонтуванні. | `plotly.js-basic-dist-min` |
 

@@ -3,7 +3,8 @@
 Єдиний етап, що ПЕРЕТВОРЮЄ значення:
   • дати       -> ISO 8601;
   • числа      -> канонічний вигляд (роздільник ".", без розрядних роздільників);
-  • логічні    -> лише маркери пропуску (NULL, NA…) стають null; True/False не чіпаємо;
+  • пропуски   -> єдина канонічна форма `null` (маркери nan / NA…, порожні рядки, NaN);
+                  значення True/False не чіпаємо;
   • категорії  -> за явним словником відповідностей (детерміновано).
 
 Значення, які не вдалося перетворити, фіксуються як дефекти; вихідне
@@ -100,11 +101,6 @@ def _normalize_number(
     return num
 
 
-def _na_marker(value: Any) -> bool:
-    """Пропуск, записаний маркером (nan, NA…) чи float NaN, а не порожнім значенням."""
-    return value is not None and not (isinstance(value, str) and value.strip() == "")
-
-
 def normalize(
     records: list[dict], schema: dict, config: NormalizationConfig
 ) -> tuple[list[dict], dict]:
@@ -121,7 +117,6 @@ def normalize(
         for f, s in props.items()
         if s.get("type") in ("integer", "number")
     }
-    boolean_fields = [f for f, s in props.items() if s.get("type") == "boolean"]
     category_maps = {
         f: {_preprocess_category(k, config.unaccent): v for k, v in mapping.items()}
         for f, mapping in config.category_mappings.items()
@@ -137,12 +132,16 @@ def normalize(
     for i, row in enumerate(records):
         new = dict(row)
 
-        for f, want_dt in date_fields.items():
+        # 0. Єдина форма пропуску: будь-яке «немає даних» (маркер, порожній рядок, NaN) → null.
+        for f in columns:
             v = row.get(f)
-            if is_missing(v, props[f]):
-                if _na_marker(v):  # nan / NA → єдиний канонічний маркер пропуску (null)
-                    new[f] = None
-                    bump(f)
+            if v is not None and is_missing(v, props.get(f)):
+                new[f] = None
+                bump(f)
+
+        for f, want_dt in date_fields.items():
+            v = new.get(f)
+            if v is None:
                 continue
             res = _normalize_date(v, config.date_input_formats, want_dt)
             if res is None:
@@ -152,11 +151,8 @@ def normalize(
                 bump(f)
 
         for f, want_int in number_fields.items():
-            v = row.get(f)
-            if is_missing(v, props[f]):
-                if _na_marker(v):  # nan / NAN / NA → null, а не float NaN у виході
-                    new[f] = None
-                    bump(f)
+            v = new.get(f)
+            if v is None:
                 continue
             res = _normalize_number(
                 v, config.decimal_separator, config.thousands_separator, want_int
@@ -167,15 +163,8 @@ def normalize(
                 new[f] = res
                 bump(f)
 
-        for f in boolean_fields:
-            v = row.get(f)
-            # значення True/False не чіпаємо; лише маркер пропуску (NULL, NA…) → null
-            if is_missing(v, props[f]) and _na_marker(v):
-                new[f] = None
-                bump(f)
-
         for f, cmap in category_maps.items():
-            v = row.get(f)
+            v = new.get(f)  # після кроку 0: пропуски вже null
             if v is None or v == "":
                 continue
             key = _preprocess_category(v, config.unaccent)

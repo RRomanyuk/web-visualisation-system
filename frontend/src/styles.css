@@ -210,6 +210,10 @@ button:disabled {
   font-size: 0.85rem;
 }
 
+.link-btn.danger {
+  color: #c0392b;
+}
+
 .error-text {
   color: #c0392b;
 }
